@@ -13,9 +13,9 @@ import android.app.Activity;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteDatabase.CursorFactory;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.View;
 import android.widget.Toast;
 
@@ -34,7 +34,7 @@ public class MainActivity extends Activity {
 		}
 
 		public DatabaseOpenHelper(Context context) {
-			super(context, "training", null, 1);
+			super(context, "training.db", null, 1);
 		}
 
 		@Override
@@ -92,9 +92,9 @@ public class MainActivity extends Activity {
 			}
 		}
 
-		public void getRandomExample(double input[], double output[]) {
-			input = new double[0];
-			output = new double[0];
+		public double[][] getRandomExample() {
+			double[] input = new double[0];
+			double[] output = new double[0];
 
 			SQLiteDatabase db = this.getReadableDatabase();
 			Cursor cursor = db.rawQuery(
@@ -106,6 +106,8 @@ public class MainActivity extends Activity {
 			}
 			cursor.close();
 			db.close();
+
+			return new double[][] { input, output };
 		}
 	};
 
@@ -162,8 +164,8 @@ public class MainActivity extends Activity {
 				DatabaseOpenHelper db = new DatabaseOpenHelper(
 						MainActivity.this);
 
-				double inputs[][] = null;
-				double outputs[][] = null;
+				double inputs[][] = {};
+				double outputs[][] = {};
 				db.getAllExamples(inputs, outputs);
 				if (inputs == null || outputs == null) {
 					return;
@@ -184,7 +186,12 @@ public class MainActivity extends Activity {
 					return;
 				}
 
-				net.learnInNewThread(set);
+				(new Handler()).postDelayed(new Runnable() {
+					@Override
+					public void run() {
+						net.learn(set);
+					}
+				}, 200);
 			}
 		});
 
@@ -200,24 +207,23 @@ public class MainActivity extends Activity {
 				DatabaseOpenHelper db = new DatabaseOpenHelper(
 						MainActivity.this);
 
-				double input[] = {};
-				double output[] = {};
-				db.getRandomExample(input, output);
-				if (input == null || output == null) {
-					System.err.println("Invalid example!");
-					return;
-				}
-				if(input.length != net.getInputsCount()) {
-					System.err.println("Invalid example input size!");
+				double[][] example = db.getRandomExample();
+				if (example[0].length != net.getInputsCount()) {
+					System.err
+							.println("Invalid example input size (expected size of "
+									+ net.getInputsCount()
+									+ ", but recieived size of "
+									+ example[0].length + ")!");
 					return;
 				}
 
-				net.setInput(input);
+				net.setInput(example[0]);
 				net.calculate();
 				Toast.makeText(
 						MainActivity.this,
-						Arrays.toString(output)
-								+ Arrays.toString(net.getOutput()),
+						Arrays.toString(example[0]) +
+						Arrays.toString(example[1]) +
+						Arrays.toString(net.getOutput()),
 						Toast.LENGTH_LONG).show();
 			}
 		});
